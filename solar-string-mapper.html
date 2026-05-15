@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Solar String Mapper</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700&display=swap');
+
+  :root {
+    --green: #22c55e; --green-dark: #16a34a; --green-bg: #dcfce7;
+    --red: #ef4444; --red-bg: #fee2e2;
+    --amber: #f59e0b; --amber-bg: #fef3c7;
+    --blue: #3b82f6; --blue-bg: #dbeafe;
+    --purple: #8b5cf6; --purple-bg: #ede9fe;
+    --pink: #ec4899; --pink-bg: #fce7f3;
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #222639;
+    --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.14);
+    --text: #f0f2f8; --muted: #8892a4; --muted2: #5a6478;
+    --font-main: 'Syne', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+    --radius: 10px; --radius-lg: 14px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-main); overflow: hidden; }
+
+  /* LAYOUT */
+  #app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+
+  /* TOP BAR */
+  .topbar {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    flex-shrink: 0; flex-wrap: wrap;
+  }
+  .logo { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--green); letter-spacing: 0.05em; white-space: nowrap; margin-right: 4px; }
+  .logo span { color: var(--muted); font-weight: 400; }
+  .tb-btn {
+    display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px;
+    border: 1px solid var(--border2); border-radius: var(--radius);
+    background: transparent; color: var(--text); font-family: var(--font-main); font-size: 12px;
+    cursor: pointer; white-space: nowrap; transition: all 0.15s;
+  }
+  .tb-btn:hover { background: var(--surface2); border-color: rgba(255,255,255,0.25); }
+  .tb-btn.accent { background: var(--green-dark); border-color: var(--green); color: #fff; }
+  .tb-btn.accent:hover { background: var(--green); }
+  .tb-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+  .spacer { flex: 1; }
+  .zoom-ctrl { display: flex; align-items: center; gap: 4px; }
+  .zoom-lbl { font-family: var(--font-mono); font-size: 11px; color: var(--muted); min-width: 38px; text-align: center; }
+
+  /* STATS ROW */
+  .statsrow {
+    display: flex; gap: 8px; padding: 8px 14px; flex-wrap: wrap;
+    background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .stat-pill {
+    display: flex; align-items: center; gap: 6px; padding: 4px 10px;
+    border-radius: 999px; border: 1px solid; font-size: 11px; font-family: var(--font-mono); white-space: nowrap;
+  }
+  .stat-pill .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .sp-green { background: #052516; border-color: #166534; color: var(--green); }
+  .sp-red { background: #1f0505; border-color: #7f1d1d; color: #f87171; }
+  .sp-amber { background: #1c1002; border-color: #78350f; color: var(--amber); }
+  .sp-blue { background: #030c1f; border-color: #1e3a8a; color: #60a5fa; }
+  .sp-total { background: var(--surface2); border-color: var(--border2); color: var(--muted); }
+  .sp-strings { background: #10091d; border-color: #4c1d95; color: #a78bfa; }
+  .progress-wrap { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .progress-track { width: 120px; height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width 0.4s; }
+  .pct-lbl { font-family: var(--font-mono); font-size: 11px; color: var(--muted); min-width: 30px; text-align: right; }
+
+  /* BODY */
+  .body { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 260px; flex-shrink: 0; background: var(--surface);
+    border-right: 1px solid var(--border); display: flex; flex-direction: column;
+    overflow-y: auto; overflow-x: hidden;
+  }
+  .sidebar-section { padding: 14px; border-bottom: 1px solid var(--border); }
+  .sec-title { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted2); margin-bottom: 10px; }
+
+  /* BULK INPUT */
+  .bulk-area {
+    width: 100%; min-height: 90px; resize: vertical;
+    background: var(--bg); border: 1px solid var(--border2); border-radius: var(--radius);
+    color: var(--text); font-family: var(--font-mono); font-size: 11px; padding: 8px;
+    line-height: 1.6; outline: none; transition: border-color 0.15s;
+  }
+  .bulk-area:focus { border-color: var(--green); }
+  .bulk-hint { font-size: 10px; color: var(--muted2); margin-top: 5px; line-height: 1.5; }
+  .parse-preview { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; max-height: 80px; overflow-y: auto; }
+  .parsed-tag {
+    font-family: var(--font-mono); font-size: 10px; padding: 2px 6px;
+    border-radius: 4px; border: 1px solid; white-space: nowrap;
+  }
+  .pt-new { background: #052516; border-color: #166534; color: var(--green); }
+  .pt-dup { background: var(--surface2); border-color: var(--border2); color: var(--muted); }
+  .add-btn { width: 100%; margin-top: 8px; padding: 8px; border-radius: var(--radius); border: 1px solid var(--green-dark); background: var(--green-dark); color: #fff; font-family: var(--font-main); font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+  .add-btn:hover { background: var(--green); border-color: var(--green); }
+  .add-btn:disabled { opacity: 0.4; cursor: default; }
+
+  /* COLOR PICKER */
+  .color-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .color-swatch {
+    width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+    border: 2px solid transparent; transition: all 0.15s; position: relative;
+  }
+  .color-swatch.active { border-color: #fff; transform: scale(1.15); }
+  .color-swatch::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 5px); left: 50%; transform: translateX(-50%); background: #000; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.1s; }
+  .color-swatch:hover::after { opacity: 1; }
+
+  /* TABLE LIST */
+  .table-list { display: flex; flex-direction: column; gap: 3px; max-height: 260px; overflow-y: auto; }
+  .trow {
+    display: flex; align-items: center; gap: 6px; padding: 5px 8px;
+    border-radius: 6px; border: 1px solid transparent; font-size: 11px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .trow:hover { background: var(--surface2); }
+  .trow.selected { border-color: rgba(255,255,255,0.25) !important; background: var(--surface2); }
+  .trow-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .trow-num { font-family: var(--font-mono); font-weight: 600; flex: 1; color: var(--text); }
+  .trow-st { font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+  .trow-rm { color: var(--muted2); cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px; transition: color 0.1s; }
+  .trow-rm:hover { color: var(--red); }
+  .placed-badge { font-size: 9px; padding: 1px 5px; border-radius: 3px; background: var(--surface2); color: var(--muted2); }
+  .placed-ok { background: #052516; color: var(--green); }
+
+  /* CANVAS */
+  .canvas-wrap { flex: 1; position: relative; overflow: hidden; background: #0a0c12; }
+  #cvs { display: block; touch-action: none; }
+  .empty-overlay {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px; pointer-events: none;
+  }
+  .empty-icon { font-size: 56px; opacity: 0.18; }
+  .empty-text { font-size: 14px; color: var(--muted); text-align: center; line-height: 1.6; }
+  .place-hint {
+    position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.85); border: 1px solid var(--amber);
+    color: var(--amber); font-family: var(--font-mono); font-size: 12px;
+    padding: 8px 16px; border-radius: 999px; pointer-events: none;
+    opacity: 0; transition: opacity 0.2s; white-space: nowrap;
+  }
+  .place-hint.visible { opacity: 1; }
+  .ctx-menu {
+    position: absolute; background: var(--surface); border: 1px solid var(--border2);
+    border-radius: var(--radius); padding: 6px; min-width: 140px; z-index: 100;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  .ctx-item { padding: 6px 10px; font-size: 12px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+  .ctx-item:hover { background: var(--surface2); }
+  .ctx-sep { height: 1px; background: var(--border); margin: 4px 0; }
+
+  /* MOBILE SIDEBAR TOGGLE */
+  .mob-toggle { display: none; }
+  @media (max-width: 700px) {
+    .sidebar { position: fixed; left: -260px; top: 0; bottom: 0; z-index: 200; transition: left 0.25s; box-shadow: 4px 0 24px rgba(0,0,0,0.5); }
+    .sidebar.open { left: 0; }
+    .mob-toggle { display: flex; }
+    .progress-track { display: none; }
+    .statsrow { gap: 5px; padding: 6px 10px; }
+    .stat-pill { font-size: 10px; padding: 3px 7px; }
+    .topbar { gap: 6px; padding: 8px 10px; }
+    .logo { font-size: 12px; }
+  }
+
+  /* LEGEND */
+  .legend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .leg-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--muted); }
+  .leg-dot { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <button class="tb-btn mob-toggle" id="mobToggle" onclick="toggleSidebar()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <div class="logo">☀ SOLAR<span>mapper</span></div>
+    <button class="tb-btn accent" onclick="document.getElementById('fileIn').click()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Nahrát plán
+    </button>
+    <input type="file" id="fileIn" accept=".pdf,.png,.jpg,.jpeg,.webp" style="display:none" onchange="loadFile(event)">
+    <button class="tb-btn" onclick="exportPng()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export PNG
+    </button>
+    <button class="tb-btn" onclick="saveState()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      Uložit
+    </button>
+    <button class="tb-btn" onclick="document.getElementById('loadIn').click()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Načíst
+    </button>
+    <input type="file" id="loadIn" accept=".json" style="display:none" onchange="loadState(event)">
+    <button class="tb-btn" onclick="clearAll()" style="color:#f87171;border-color:#7f1d1d">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+      Vymazat
+    </button>
+    <div class="spacer"></div>
+    <div class="zoom-ctrl">
+      <button class="tb-btn" onclick="doZoom(-0.15)" style="padding:6px 9px">−</button>
+      <span class="zoom-lbl" id="zoomLbl">100%</span>
+      <button class="tb-btn" onclick="doZoom(0.15)" style="padding:6px 9px">+</button>
+      <button class="tb-btn" onclick="fitImg()" style="padding:6px 9px" title="Přizpůsobit">⊡</button>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="statsrow">
+    <div class="stat-pill sp-green"><div class="dot" style="background:var(--green)"></div><span id="sDone">0 hotovo</span></div>
+    <div class="stat-pill sp-red"><div class="dot" style="background:#f87171"></div><span id="sErr">0 chyba</span></div>
+    <div class="stat-pill sp-amber"><div class="dot" style="background:var(--amber)"></div><span id="sWip">0 probíhá</span></div>
+    <div class="stat-pill sp-blue"><div class="dot" style="background:#60a5fa"></div><span id="sCheck">0 zkontrolováno</span></div>
+    <div class="stat-pill sp-strings"><div class="dot" style="background:#a78bfa"></div><span id="sStrings">0 stringů</span></div>
+    <div class="stat-pill sp-total"><span id="sSmall">0 mal.</span></div>
+    <div class="stat-pill sp-total"><span id="sBig">0 vel.</span></div>
+    <div class="progress-wrap">
+      <div class="progress-track"><div class="progress-fill" id="pgFill" style="width:0%"></div></div>
+      <span class="pct-lbl" id="sPct">0%</span>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div class="body">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+
+      <!-- BULK INPUT -->
+      <div class="sidebar-section">
+        <div class="sec-title">Přidat stoly z WhatsApp</div>
+        <textarea class="bulk-area" id="bulkInput" placeholder="Vlož zprávu z WhatsApp...&#10;&#10;Příklady:&#10;TR-786-1st&#10;TR-787-2st&#10;TR-788-1st, TR-789-2st&#10;786, 787, 788" oninput="parseBulk()"></textarea>
+        <div class="bulk-hint">Formát: TR-786-1st, TR-787-2st, nebo jen čísla. Odděluj čárkou, mezerou nebo novým řádkem.</div>
+        <div class="parse-preview" id="parsePreview"></div>
+
+        <div class="color-row" id="colorRow" style="margin-top:10px;margin-bottom:8px"></div>
+        <button class="add-btn" id="addBtn" onclick="commitBulk()" disabled>Přidat stoly</button>
+
+        <div style="margin-top:8px;font-size:10px;color:var(--muted2)">
+          Stoly bez plánu se přidají do seznamu. Po nahrání plánu klikneš na stůl v seznamu → pak klikneš kde leží na plánu.
+        </div>
+      </div>
+
+      <!-- LEGEND -->
+      <div class="sidebar-section">
+        <div class="sec-title">Legenda</div>
+        <div class="legend-grid">
+          <div class="leg-item"><div class="leg-dot" style="background:var(--green)"></div>Hotovo</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#ef4444"></div>Chyba</div>
+          <div class="leg-item"><div class="leg-dot" style="background:var(--amber)"></div>Probíhá</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#3b82f6"></div>Zkontrolováno</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#8b5cf6"></div>Vlastní 1</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#ec4899"></div>Vlastní 2</div>
+        </div>
+        <div style="margin-top:8px;font-size:10px;color:var(--muted2)">Malý stůl = 1st &nbsp;|&nbsp; Velký stůl = 2st+</div>
+      </div>
+
+      <!-- TABLE LIST -->
+      <div class="sidebar-section" style="flex:1">
+        <div class="sec-title" style="display:flex;align-items:center;justify-content:space-between">
+          <span>Seznam stolů (<span id="listCount">0</span>)</span>
+          <span style="font-size:9px;color:var(--muted2)">klik = umístit</span>
+        </div>
+        <div class="table-list" id="tableList"></div>
+      </div>
+
+    </div>
+
+    <!-- CANVAS -->
+    <div class="canvas-wrap" id="cWrap">
+      <div class="empty-overlay" id="emptyOverlay">
+        <div class="empty-icon">☀</div>
+        <div class="empty-text">Nahraj PDF nebo obrázek plánu<br><small style="font-size:11px;opacity:0.6">nebo přidej stoly a označ je v seznamu</small></div>
+      </div>
+      <canvas id="cvs"></canvas>
+      <div class="place-hint" id="placeHint">Klikni na plán kde leží stůl</div>
+      <div class="ctx-menu" id="ctxMenu" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────
+const S = {
+  scale: 1, ox: 0, oy: 0,
+  dragging: false, lx: 0, ly: 0,
+  img: null, iw: 0, ih: 0,
+  tables: [],      // {id, label, num, strings, big, color, x, y}
+  placing: null,   // id being placed
+  selColor: '#22c55e',
+  parsed: [],      // preview of bulk parse
+};
+
+const COLORS = [
+  {c:'#22c55e',n:'Hotovo'},
+  {c:'#ef4444',n:'Chyba'},
+  {c:'#f59e0b',n:'Probíhá'},
+  {c:'#3b82f6',n:'Zkontrolováno'},
+  {c:'#8b5cf6',n:'Vlastní 1'},
+  {c:'#ec4899',n:'Vlastní 2'},
+];
+
+// ─── PARSE ────────────────────────────────────────────────
+function parseToken(raw) {
+  const s = raw.trim();
+  if (!s) return null;
+  // TR-786-1st or TR-786-2st etc.
+  let m = s.match(/(?:TR-)?(\d+)-(\d+)st/i);
+  if (m) return { label: s.toUpperCase(), num: parseInt(m[1]), strings: parseInt(m[2]), big: parseInt(m[2]) >= 2 };
+  // Just number
+  m = s.match(/^(\d+)$/);
+  if (m) return { label: m[1], num: parseInt(m[1]), strings: 1, big: false };
+  return null;
+}
+
+function tokenize(text) {
+  return text.split(/[\s,;\n]+/).map(t => t.trim()).filter(Boolean);
+}
+
+function parseBulk() {
+  const raw = document.getElementById('bulkInput').value;
+  const tokens = tokenize(raw);
+  const results = [];
+  tokens.forEach(t => {
+    const p = parseToken(t);
+    if (!p) return;
+    const dup = S.tables.some(e => e.num === p.num);
+    results.push({ ...p, dup });
+  });
+  S.parsed = results;
+  renderPreview();
+  document.getElementById('addBtn').disabled = results.filter(r => !r.dup).length === 0;
+}
+
+function renderPreview() {
+  const el = document.getElementById('parsePreview');
+  el.innerHTML = S.parsed.map(p =>
+    `<span class="parsed-tag ${p.dup?'pt-dup':'pt-new'}" title="${p.dup?'duplicit':'nový'}: ${p.strings}st">
+      ${p.label}${p.dup?' ✓':''}
+    </span>`
+  ).join('');
+}
+
+function commitBulk() {
+  S.parsed.filter(p => !p.dup).forEach(p => {
+    S.tables.push({ id: Date.now() + Math.random(), label: p.label, num: p.num, strings: p.strings, big: p.big, color: S.selColor, x: null, y: null });
+  });
+  document.getElementById('bulkInput').value = '';
+  S.parsed = [];
+  renderPreview();
+  document.getElementById('addBtn').disabled = true;
+  updateUI(); draw();
+}
+
+// ─── COLOR SWATCHES ───────────────────────────────────────
+function initColors() {
+  document.getElementById('colorRow').innerHTML = COLORS.map(c =>
+    `<div class="color-swatch${c.c===S.selColor?' active':''}" style="background:${c.c}" data-tip="${c.n}" onclick="pickColor('${c.c}',this)"></div>`
+  ).join('');
+}
+initColors();
+
+function pickColor(c, el) {
+  S.selColor = c;
+  document.querySelectorAll('.color-swatch').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ─── STATS ────────────────────────────────────────────────
+function updateUI() {
+  const t = S.tables;
+  const placed = t.filter(x => x.x !== null);
+  const done = t.filter(x => x.color === '#22c55e').length;
+  const err  = t.filter(x => x.color === '#ef4444').length;
+  const wip  = t.filter(x => x.color === '#f59e0b').length;
+  const chk  = t.filter(x => x.color === '#3b82f6').length;
+  const totalStrings = t.reduce((a, x) => a + x.strings, 0);
+  const small = t.filter(x => !x.big).length;
+  const big   = t.filter(x => x.big).length;
+  const pct = t.length ? Math.round(placed.length / t.length * 100) : 0;
+
+  document.getElementById('sDone').textContent = done + ' hotovo';
+  document.getElementById('sErr').textContent  = err  + ' chyba';
+  document.getElementById('sWip').textContent  = wip  + ' probíhá';
+  document.getElementById('sCheck').textContent= chk  + ' zkontrol.';
+  document.getElementById('sStrings').textContent = totalStrings + ' stringů';
+  document.getElementById('sSmall').textContent = small + ' malých';
+  document.getElementById('sBig').textContent   = big   + ' velkých';
+  document.getElementById('sPct').textContent   = pct + '%';
+  document.getElementById('pgFill').style.width = pct + '%';
+  document.getElementById('listCount').textContent = t.length;
+
+  renderTableList();
+
+  if (S.placing) {
+    document.getElementById('placeHint').classList.add('visible');
+    cvs.style.cursor = 'crosshair';
+  } else {
+    document.getElementById('placeHint').classList.remove('visible');
+    cvs.style.cursor = S.img ? 'grab' : 'default';
+  }
+}
+
+function renderTableList() {
+  const el = document.getElementById('tableList');
+  el.innerHTML = S.tables.map(t =>
+    `<div class="trow${S.placing===t.id?' selected':''}" style="border-color:${S.placing===t.id?'rgba(255,255,255,0.25)':'transparent'}" onclick="selectForPlace('${t.id}')">
+      <div class="trow-dot" style="background:${t.color}"></div>
+      <div class="trow-num">${t.label}</div>
+      <div class="trow-st">${t.strings}st</div>
+      <div class="placed-badge${t.x!==null?' placed-ok':''}">${t.x!==null?'✓':'—'}</div>
+      <div class="trow-rm" onclick="event.stopPropagation();removeTable('${t.id}')" title="Odebrat">×</div>
+    </div>`
+  ).join('');
+}
+
+function selectForPlace(id) {
+  if (!S.img) { alert('Nejdřív nahraj plán stavby.'); return; }
+  S.placing = (S.placing === id) ? null : id;
+  updateUI();
+}
+
+function removeTable(id) {
+  S.tables = S.tables.filter(t => t.id !== id);
+  if (S.placing === id) S.placing = null;
+  updateUI(); draw();
+}
+
+function clearAll() {
+  if (!confirm('Opravdu vymazat všechna data?')) return;
+  S.tables = []; S.placing = null;
+  updateUI(); draw();
+}
+
+// ─── CANVAS ───────────────────────────────────────────────
+const cvs = document.getElementById('cvs');
+const ctx  = cvs.getContext('2d');
+const wrap = document.getElementById('cWrap');
+
+function resize() {
+  const r = wrap.getBoundingClientRect();
+  cvs.width = r.width; cvs.height = r.height;
+  draw();
+}
+window.addEventListener('resize', resize);
+
+function toWorld(sx, sy) { return [(sx - S.ox) / S.scale, (sy - S.oy) / S.scale]; }
+
+function draw() {
+  const W = cvs.width, H = cvs.height;
+  ctx.clearRect(0, 0, W, H);
+  if (!S.img) return;
+  ctx.save();
+  ctx.translate(S.ox, S.oy);
+  ctx.scale(S.scale, S.scale);
+  ctx.drawImage(S.img, 0, 0, S.iw, S.ih);
+
+  S.tables.forEach(t => {
+    if (t.x === null) return;
+    const ms = 24 / S.scale;
+    const r  = ms / 2;
+    // circle
+    ctx.beginPath(); ctx.arc(t.x, t.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = t.color; ctx.globalAlpha = 0.92; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1.8 / S.scale; ctx.stroke();
+    // big marker ring for big tables
+    if (t.big) {
+      ctx.beginPath(); ctx.arc(t.x, t.y, r + 4/S.scale, 0, Math.PI * 2);
+      ctx.strokeStyle = t.color; ctx.lineWidth = 1.2/S.scale; ctx.globalAlpha = 0.5; ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    // label
+    const fs = Math.max(7, Math.min(12, r * 0.95));
+    ctx.font = `700 ${fs}px 'JetBrains Mono', monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(String(t.num), t.x, t.y);
+    // string count badge
+    const bs = 8 / S.scale;
+    ctx.beginPath(); ctx.arc(t.x + r * 0.7, t.y - r * 0.7, bs, 0, Math.PI * 2);
+    ctx.fillStyle = '#0f1117'; ctx.fill();
+    ctx.font = `600 ${bs * 1.1}px 'JetBrains Mono', monospace`;
+    ctx.fillStyle = t.color;
+    ctx.fillText(String(t.strings), t.x + r * 0.7, t.y - r * 0.7);
+  });
+  ctx.restore();
+}
+
+// ─── MOUSE ────────────────────────────────────────────────
+cvs.addEventListener('mousedown', e => {
+  hideCtx();
+  const r = cvs.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  if (S.placing && S.img) {
+    const [wx, wy] = toWorld(mx, my);
+    const t = S.tables.find(x => x.id === S.placing);
+    if (t) { t.x = wx; t.y = wy; }
+    S.placing = null;
+    updateUI(); draw(); return;
+  }
+  S.dragging = true; S.lx = e.clientX; S.ly = e.clientY;
+  cvs.style.cursor = 'grabbing';
+});
+
+cvs.addEventListener('mousemove', e => {
+  if (!S.dragging) return;
+  S.ox += e.clientX - S.lx; S.oy += e.clientY - S.ly;
+  S.lx = e.clientX; S.ly = e.clientY;
+  draw();
+});
+
+cvs.addEventListener('mouseup', () => { S.dragging = false; if (S.img && !S.placing) cvs.style.cursor = 'grab'; });
+cvs.addEventListener('mouseleave', () => { S.dragging = false; });
+
+cvs.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  const r = cvs.getBoundingClientRect();
+  const [wx, wy] = toWorld(e.clientX - r.left, e.clientY - r.top);
+  const hit = S.tables.find(t => t.x !== null && Math.hypot(t.x - wx, t.y - wy) < 20 / S.scale);
+  if (hit) showCtxMenu(e.clientX - r.left, e.clientY - r.top, hit);
+});
+
+cvs.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = cvs.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  const factor = e.deltaY > 0 ? 0.88 : 1.12;
+  const ns = Math.max(0.1, Math.min(10, S.scale * factor));
+  S.ox = mx - (mx - S.ox) * (ns / S.scale);
+  S.oy = my - (my - S.oy) * (ns / S.scale);
+  S.scale = ns;
+  document.getElementById('zoomLbl').textContent = Math.round(S.scale * 100) + '%';
+  draw();
+}, { passive: false });
+
+// ─── TOUCH ────────────────────────────────────────────────
+let lastTouches = [];
+cvs.addEventListener('touchstart', e => {
+  hideCtx();
+  lastTouches = Array.from(e.touches).map(t => ({ x: t.clientX, y: t.clientY }));
+  if (e.touches.length === 1 && S.placing && S.img) {
+    const r = cvs.getBoundingClientRect();
+    const [wx, wy] = toWorld(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top);
+    const t = S.tables.find(x => x.id === S.placing);
+    if (t) { t.x = wx; t.y = wy; }
+    S.placing = null;
+    updateUI(); draw(); return;
+  }
+}, { passive: true });
+
+cvs.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const cur = Array.from(e.touches).map(t => ({ x: t.clientX, y: t.clientY }));
+  if (cur.length === 1 && lastTouches.length === 1) {
+    S.ox += cur[0].x - lastTouches[0].x;
+    S.oy += cur[0].y - lastTouches[0].y;
+  } else if (cur.length === 2 && lastTouches.length === 2) {
+    const d1 = Math.hypot(lastTouches[1].x - lastTouches[0].x, lastTouches[1].y - lastTouches[0].y);
+    const d2 = Math.hypot(cur[1].x - cur[0].x, cur[1].y - cur[0].y);
+    const factor = d2 / d1;
+    const mx = (cur[0].x + cur[1].x) / 2;
+    const my = (cur[0].y + cur[1].y) / 2;
+    const r = cvs.getBoundingClientRect();
+    const cx = mx - r.left, cy = my - r.top;
+    const ns = Math.max(0.1, Math.min(10, S.scale * factor));
+    S.ox = cx - (cx - S.ox) * (ns / S.scale);
+    S.oy = cy - (cy - S.oy) * (ns / S.scale);
+    S.scale = ns;
+    document.getElementById('zoomLbl').textContent = Math.round(S.scale * 100) + '%';
+  }
+  lastTouches = cur;
+  draw();
+}, { passive: false });
+
+// ─── CONTEXT MENU ─────────────────────────────────────────
+function showCtxMenu(x, y, table) {
+  const m = document.getElementById('ctxMenu');
+  m.innerHTML = `
+    <div style="padding:4px 10px 6px;font-size:10px;color:var(--muted);font-family:var(--font-mono)">${table.label}</div>
+    <div class="ctx-sep"></div>
+    ${COLORS.map(c => `<div class="ctx-item" onclick="changeColor('${table.id}','${c.c}')"><div style="width:10px;height:10px;border-radius:50%;background:${c.c}"></div>${c.n}</div>`).join('')}
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" onclick="relocate('${table.id}')">📍 Přemístit</div>
+    <div class="ctx-item" style="color:#f87171" onclick="removeTable('${table.id}')">✕ Odebrat</div>
+  `;
+  m.style.display = 'block';
+  m.style.left = Math.min(x, cvs.width - 160) + 'px';
+  m.style.top  = Math.min(y, cvs.height - 200) + 'px';
+}
+function hideCtx() { document.getElementById('ctxMenu').style.display = 'none'; }
+function changeColor(id, c) { const t = S.tables.find(x => x.id === id); if (t) t.color = c; hideCtx(); updateUI(); draw(); }
+function relocate(id) { S.placing = id; hideCtx(); updateUI(); }
+document.addEventListener('click', e => { if (!e.target.closest('#ctxMenu')) hideCtx(); });
+
+// ─── FILE LOAD ────────────────────────────────────────────
+function loadFile(evt) {
+  const file = evt.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  if (file.type === 'application/pdf') {
+    reader.onload = e => loadPdf(e.target.result);
+    reader.readAsArrayBuffer(file);
+  } else {
+    reader.onload = e => loadImg(e.target.result);
+    reader.readAsDataURL(file);
+  }
+  evt.target.value = '';
+}
+
+function loadImg(src) {
+  const im = new Image();
+  im.onload = () => {
+    S.img = im; S.iw = im.width; S.ih = im.height;
+    document.getElementById('emptyOverlay').style.display = 'none';
+    fitImg(); draw(); updateUI();
+  };
+  im.src = src;
+}
+
+async function loadPdf(buf) {
+  document.getElementById('emptyOverlay').innerHTML = '<div class="empty-text">Načítám PDF…</div>';
+  document.getElementById('emptyOverlay').style.display = 'flex';
+  try {
+    const pdfjsLib = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs';
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    const page = await pdf.getPage(1);
+    const vp = page.getViewport({ scale: 2.5 });
+    const oc = document.createElement('canvas');
+    oc.width = vp.width; oc.height = vp.height;
+    await page.render({ canvasContext: oc.getContext('2d'), viewport: vp }).promise;
+    loadImg(oc.toDataURL());
+  } catch(err) {
+    document.getElementById('emptyOverlay').innerHTML = '<div class="empty-text" style="color:#f87171">Chyba při načítání PDF.<br>Zkus převést na PNG.</div>';
+  }
+}
+
+function fitImg() {
+  const W = cvs.width || wrap.clientWidth;
+  const H = cvs.height || wrap.clientHeight;
+  S.scale = Math.min(W / S.iw, H / S.ih) * 0.94;
+  S.ox = (W - S.iw * S.scale) / 2;
+  S.oy = (H - S.ih * S.scale) / 2;
+  document.getElementById('zoomLbl').textContent = Math.round(S.scale * 100) + '%';
+}
+
+function doZoom(d) {
+  S.scale = Math.max(0.1, Math.min(10, S.scale * (1 + d)));
+  document.getElementById('zoomLbl').textContent = Math.round(S.scale * 100) + '%';
+  draw();
+}
+
+// ─── EXPORT PNG ───────────────────────────────────────────
+function exportPng() {
+  const a = document.createElement('a');
+  a.download = 'solar-mapa-' + new Date().toISOString().slice(0,10) + '.png';
+  a.href = cvs.toDataURL('image/png');
+  a.click();
+}
+
+// ─── SAVE / LOAD JSON ─────────────────────────────────────
+function saveState() {
+  const data = { tables: S.tables, imgW: S.iw, imgH: S.ih };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'solar-stav-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+}
+
+function loadState(evt) {
+  const file = evt.target.files[0];
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      S.tables = data.tables || [];
+      updateUI(); draw();
+      alert('Stav načten! Nahraj stejný plán (PDF/obrázek) aby se zobrazily markery.');
+    } catch { alert('Chyba při načítání souboru.'); }
+  };
+  r.readAsText(file);
+  evt.target.value = '';
+}
+
+// ─── MOBILE SIDEBAR ───────────────────────────────────────
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+document.getElementById('cWrap').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.remove('open');
+});
+
+// ─── INIT ─────────────────────────────────────────────────
+resize();
+updateUI();
+</script>
+</body>
+</html>
